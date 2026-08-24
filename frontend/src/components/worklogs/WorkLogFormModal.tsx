@@ -54,7 +54,7 @@ export function WorkLogFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isAdmin = currentUserRole === "ADMIN";
-  const canAssign = currentUserRole === "ADMIN" || currentUserRole === "ENGINEER";
+  currentUserRole === "ADMIN" || currentUserRole === "ENGINEER";
 
   useEffect(() => {
     if (isAdmin) {
