@@ -1,0 +1,176 @@
+databaseChangeLog:
+
+  # ══════════════════════════════════════════════════════════════
+  # ChangeSet A: таблица room_employees (many-to-many)
+  # ══════════════════════════════════════════════════════════════
+  - changeSet:
+      id: 003-a-room-employees
+      author: maksimlych
+      changes:
+
+        - createTable:
+            tableName: room_employees
+            columns:
+              - column:
+                  name: room_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: employee_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+        - addPrimaryKey:
+            tableName: room_employees
+            columnNames: room_id, employee_id
+            constraintName: pk_room_employees
+
+        - addForeignKeyConstraint:
+            baseTableName: room_employees
+            baseColumnNames: room_id
+            referencedTableName: rooms
+            referencedColumnNames: id
+            constraintName: fk_room_employees_room
+            onDelete: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: room_employees
+            baseColumnNames: employee_id
+            referencedTableName: employees
+            referencedColumnNames: id
+            constraintName: fk_room_employees_employee
+            onDelete: CASCADE
+
+  # ══════════════════════════════════════════════════════════════
+  # ChangeSet B: удаляем responsible_employee_id из rooms
+  # ══════════════════════════════════════════════════════════════
+  - changeSet:
+      id: 003-b-drop-room-responsible
+      author: maksimlych
+      changes:
+
+        - dropForeignKeyConstraint:
+            baseTableName: rooms
+            constraintName: fk_rooms_employee
+
+        - dropColumn:
+            tableName: rooms
+            columnName: responsible_employee_id
+
+  # ══════════════════════════════════════════════════════════════
+  # ChangeSet C: новые поля в equipment (спецификации по типу)
+  # ══════════════════════════════════════════════════════════════
+  - changeSet:
+      id: 003-c-equipment-spec-fields
+      author: maksimlych
+      changes:
+
+        - addColumn:
+            tableName: equipment
+            columns:
+              # ── ПК / Ноутбук / Сервер ──────────────────────────
+              - column:
+                  name: cpu
+                  type: VARCHAR(200)
+              - column:
+                  name: ram_gb
+                  type: INTEGER
+              - column:
+                  name: storage
+                  type: VARCHAR(200)
+              - column:
+                  name: gpu
+                  type: VARCHAR(200)
+              - column:
+                  name: os
+                  type: VARCHAR(100)
+              - column:
+                  name: form_factor
+                  type: VARCHAR(50)
+              # ── Монитор / Проектор ─────────────────────────────
+              - column:
+                  name: diagonal_inch
+                  type: NUMERIC(5,1)
+              - column:
+                  name: resolution
+                  type: VARCHAR(30)
+              - column:
+                  name: panel_type
+                  type: VARCHAR(30)
+              - column:
+                  name: refresh_rate_hz
+                  type: INTEGER
+              # ── Принтер / МФУ ──────────────────────────────────
+              - column:
+                  name: print_speed_ppm
+                  type: INTEGER
+              - column:
+                  name: print_color
+                  type: BOOLEAN
+              - column:
+                  name: print_format
+                  type: VARCHAR(10)
+              # ── Мышь ───────────────────────────────────────────
+              - column:
+                  name: dpi
+                  type: INTEGER
+              - column:
+                  name: wireless
+                  type: BOOLEAN
+              # ── Клавиатура ─────────────────────────────────────
+              - column:
+                  name: switch_type
+                  type: VARCHAR(80)
+              - column:
+                  name: layout
+                  type: VARCHAR(30)
+              # ── Коммутатор / Роутер ────────────────────────────
+              - column:
+                  name: port_count
+                  type: INTEGER
+              # ── ИБП ────────────────────────────────────────────
+              - column:
+                  name: power_va
+                  type: INTEGER
+              - column:
+                  name: battery_runtime_min
+                  type: INTEGER
+
+  # ══════════════════════════════════════════════════════════════
+  # ChangeSet D: удаляем устаревшие общие поля из equipment
+  # ══════════════════════════════════════════════════════════════
+  - changeSet:
+      id: 003-d-drop-equipment-legacy-fields
+      author: maksimlych
+      changes:
+
+        # balance_cost — убрали из бизнес-логики
+        - dropColumn:
+            tableName: equipment
+            columnName: balance_cost
+
+        # serial_number, qr_code, manufacturer, model —
+        # убраны из UI и DTO; если хотите сохранить данные,
+        # закомментируйте эти строки
+        - dropColumn:
+            tableName: equipment
+            columnName: serial_number
+
+        - dropColumn:
+            tableName: equipment
+            columnName: manufacturer
+
+        - dropColumn:
+            tableName: equipment
+            columnName: model
+
+        # qr_code имеет unique constraint — сначала дропаем его
+        - dropUniqueConstraint:
+            tableName: equipment
+            constraintName: equipment_qr_code_key
+
+        - dropColumn:
+            tableName: equipment
+            columnName: qr_code

@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - include:
+      file: changes/001-initial-schema.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/002-floor-plan.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/003-room-employees-equipment-specs.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/004-equipment-connectors.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/005-plan-markers.yaml
+      relativeToChangelogFile: true

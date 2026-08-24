@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-equipment-connectors
+      author: maksimlych
+      changes:
+        - addColumn:
+            tableName: equipment
+            columns:
+              - column:
+                  name: connectors
+                  type: VARCHAR(150)

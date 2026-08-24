@@ -1,0 +1,147 @@
+databaseChangeLog:
+
+  # ══════════════════════════════════════════════════════════════
+  # ChangeSet A: убираем старую систему полигонов кабинетов на плане —
+  # заменяем на универсальные маркеры инфраструктуры (розетки, кабели,
+  # коммутаторы и т.д.), которые пользователь создаёт сам.
+  # ══════════════════════════════════════════════════════════════
+  - changeSet:
+      id: 005-a-drop-room-polygons
+      author: maksimlych
+      changes:
+        - dropTable:
+            tableName: room_polygons
+
+  # ══════════════════════════════════════════════════════════════
+  # ChangeSet B: типы маркеров — пользователь заводит свои
+  # (название, цвет, точка/линия)
+  # ══════════════════════════════════════════════════════════════
+  - changeSet:
+      id: 005-b-plan-marker-types
+      author: maksimlych
+      changes:
+        - createTable:
+            tableName: plan_marker_types
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: color
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: kind
+                  type: VARCHAR(10)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+        # Стартовый набор типов — дальше редактируются/добавляются через UI
+        - insert:
+            tableName: plan_marker_types
+            columns:
+              - column: { name: name, value: "Розетка 220В" }
+              - column: { name: color, value: "#ef4444" }
+              - column: { name: kind, value: "POINT" }
+        - insert:
+            tableName: plan_marker_types
+            columns:
+              - column: { name: name, value: "Розетка интернет" }
+              - column: { name: color, value: "#2563eb" }
+              - column: { name: kind, value: "POINT" }
+        - insert:
+            tableName: plan_marker_types
+            columns:
+              - column: { name: name, value: "Коммутатор" }
+              - column: { name: color, value: "#d97706" }
+              - column: { name: kind, value: "POINT" }
+        - insert:
+            tableName: plan_marker_types
+            columns:
+              - column: { name: name, value: "Wi-Fi точка доступа" }
+              - column: { name: color, value: "#9333ea" }
+              - column: { name: kind, value: "POINT" }
+        - insert:
+            tableName: plan_marker_types
+            columns:
+              - column: { name: name, value: "Кабельная трасса" }
+              - column: { name: color, value: "#16a34a" }
+              - column: { name: kind, value: "LINE" }
+
+  # ══════════════════════════════════════════════════════════════
+  # ChangeSet C: сами маркеры на плане этажа
+  # ══════════════════════════════════════════════════════════════
+  - changeSet:
+      id: 005-c-plan-markers
+      author: maksimlych
+      changes:
+        - createTable:
+            tableName: plan_markers
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: floor_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: marker_type_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: points
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: label
+                  type: VARCHAR(200)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+        - addForeignKeyConstraint:
+            baseTableName: plan_markers
+            baseColumnNames: floor_id
+            referencedTableName: floors
+            referencedColumnNames: id
+            constraintName: fk_plan_markers_floor
+            onDelete: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: plan_markers
+            baseColumnNames: marker_type_id
+            referencedTableName: plan_marker_types
+            referencedColumnNames: id
+            constraintName: fk_plan_markers_type
+            onDelete: CASCADE
+
+        - createIndex:
+            tableName: plan_markers
+            indexName: idx_plan_markers_floor
+            columns:
+              - column:
+                  name: floor_id

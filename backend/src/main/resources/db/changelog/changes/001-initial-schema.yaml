@@ -1,0 +1,393 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-initial-schema
+      author: maksimlych
+      changes:
+
+        # ======================
+        # 1. Пользователи и сотрудники
+        # ======================
+        - createTable:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: username
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: password
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: full_name
+                  type: VARCHAR(150)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: email
+                  type: VARCHAR(100)
+              - column:
+                  name: role
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+        - createTable:
+            tableName: employees
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: full_name
+                  type: VARCHAR(150)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: position
+                  type: VARCHAR(100)
+              - column:
+                  name: department
+                  type: VARCHAR(100)
+              - column:
+                  name: internal_phone
+                  type: VARCHAR(20)
+              - column:
+                  name: email
+                  type: VARCHAR(100)
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+        # ======================
+        # 2. Структура здания (одно здание — без таблицы buildings)
+        # ======================
+        - createTable:
+            tableName: floors
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: number
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: name
+                  type: VARCHAR(50)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+        - createTable:
+            tableName: rooms
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: floor_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: number
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+              - column:
+                  name: room_type
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: responsible_employee_id
+                  type: BIGINT
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+        - addForeignKeyConstraint:
+            baseTableName: rooms
+            baseColumnNames: floor_id
+            referencedTableName: floors
+            referencedColumnNames: id
+            constraintName: fk_rooms_floor
+            onDelete: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: rooms
+            baseColumnNames: responsible_employee_id
+            referencedTableName: employees
+            referencedColumnNames: id
+            constraintName: fk_rooms_employee
+            onDelete: SET NULL
+
+        # ======================
+        # 3. Оборудование
+        # ======================
+        - createTable:
+            tableName: equipment
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: inventory_number
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: serial_number
+                  type: VARCHAR(100)
+              - column:
+                  name: qr_code
+                  type: VARCHAR(100)
+                  constraints:
+                    unique: true
+              - column:
+                  name: type
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: manufacturer
+                  type: VARCHAR(80)
+              - column:
+                  name: model
+                  type: VARCHAR(100)
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: room_id
+                  type: BIGINT
+              - column:
+                  name: responsible_employee_id
+                  type: BIGINT
+              - column:
+                  name: purchase_date
+                  type: DATE
+              - column:
+                  name: warranty_until
+                  type: DATE
+              - column:
+                  name: balance_cost
+                  type: NUMERIC(12,2)
+              - column:
+                  name: ip_address
+                  type: VARCHAR(45)
+              - column:
+                  name: mac_address
+                  type: VARCHAR(17)
+              - column:
+                  name: notes
+                  type: TEXT
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+        - addForeignKeyConstraint:
+            baseTableName: equipment
+            baseColumnNames: room_id
+            referencedTableName: rooms
+            referencedColumnNames: id
+            constraintName: fk_equipment_room
+            onDelete: SET NULL
+
+        - addForeignKeyConstraint:
+            baseTableName: equipment
+            baseColumnNames: responsible_employee_id
+            referencedTableName: employees
+            referencedColumnNames: id
+            constraintName: fk_equipment_employee
+            onDelete: SET NULL
+
+        - createIndex:
+            tableName: equipment
+            indexName: idx_equipment_inventory
+            columns:
+              - column:
+                  name: inventory_number
+
+        - createIndex:
+            tableName: equipment
+            indexName: idx_equipment_status
+            columns:
+              - column:
+                  name: status
+
+        - createIndex:
+            tableName: equipment
+            indexName: idx_equipment_type
+            columns:
+              - column:
+                  name: type
+
+        # ======================
+        # 4. История работ
+        # ======================
+        - createTable:
+            tableName: work_logs
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: equipment_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: work_type
+                  type: VARCHAR(40)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: executor_id
+                  type: BIGINT
+              - column:
+                  name: requested_by_id
+                  type: BIGINT
+              - column:
+                  name: started_at
+                  type: TIMESTAMP
+              - column:
+                  name: finished_at
+                  type: TIMESTAMP
+              - column:
+                  name: time_spent_minutes
+                  type: INTEGER
+              - column:
+                  name: used_parts
+                  type: TEXT
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+        - addForeignKeyConstraint:
+            baseTableName: work_logs
+            baseColumnNames: equipment_id
+            referencedTableName: equipment
+            referencedColumnNames: id
+            constraintName: fk_worklogs_equipment
+            onDelete: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: work_logs
+            baseColumnNames: executor_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_worklogs_executor
+            onDelete: SET NULL
+
+
+        - addForeignKeyConstraint:
+            baseTableName: work_logs
+            baseColumnNames: requested_by_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_worklogs_requested_by
+            onDelete: SET NULL
+        - createIndex:
+            tableName: work_logs
+            indexName: idx_worklogs_equipment
+            columns:
+              - column:
+                  name: equipment_id
+
+        - createIndex:
+            tableName: work_logs
+            indexName: idx_worklogs_status
+            columns:
+              - column:
+                  name: status
+
+        # ======================
+        # 5. Начальный админ
+        # ======================
+        - insert:
+            tableName: users
+            columns:
+              - column:
+                  name: username
+                  value: admin
+              - column:
+                  name: password
+                  value: "$2b$10$CgH47CN/7fqKRGu/EBAvJussQa3.f2qjP51838sH0zSnOQqw7AEva"   # CHANGE ME: default admin123 — обязательно сменить в проде
+              - column:
+                  name: full_name
+                  value: "Администратор системы"
+              - column:
+                  name: role
+                  value: ADMIN
+              - column:
+                  name: is_active
+                  valueBoolean: true
