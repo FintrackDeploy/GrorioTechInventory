@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Modal } from "../shared/Modal";
 import { extractApiErrorMessage } from "../../api/client";
+import { searchInventoryNumbers } from "../../api/equipmentApi";
 import {
   EQUIPMENT_STATUS_LABELS,
   EQUIPMENT_TYPE_LABELS,
@@ -14,6 +15,7 @@ import type {
   EquipmentResponse,
   EquipmentStatus,
   EquipmentType,
+  InventoryGroupSuggestion,
 } from "../../types/equipment";
 import type { RoomResponse } from "../../types/room";
 import type { EmployeeResponse } from "../../types/employee";
@@ -84,6 +86,12 @@ export function EquipmentFormModal({
   const [powerVa, setPowerVa] = useState(n(equipment?.powerVa));
   const [batteryRuntimeMin, setBatteryRuntimeMin] = useState(n(equipment?.batteryRuntimeMin));
 
+  // Автоподсказка по инвентарному номеру — показывает, что номер уже
+  // используется другим комплектом, и позволяет подставить его кабинет/
+  // ответственного, чтобы новая единица легла в тот же комплект.
+  const [inventorySuggestions, setInventorySuggestions] = useState<InventoryGroupSuggestion[]>([]);
+  const [isInventoryDropdownOpen, setIsInventoryDropdownOpen] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -100,6 +108,30 @@ export function EquipmentFormModal({
   const isKeyboard = type === "KEYBOARD";
   const isSwitch = type === "SWITCH" || type === "ROUTER" || type === "ACCESS_POINT";
   const isUps = type === "UPS";
+
+  useEffect(() => {
+    if (!inventoryNumber.trim()) {
+      setInventorySuggestions([]);
+      return;
+    }
+    const handle = setTimeout(() => {
+      searchInventoryNumbers(inventoryNumber.trim())
+        .then(setInventorySuggestions)
+        .catch(() => setInventorySuggestions([]));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [inventoryNumber]);
+
+  const exactMatch = inventorySuggestions.find(
+    (sgg) => sgg.inventoryNumber === inventoryNumber.trim() && sgg.inventoryNumber !== equipment?.inventoryNumber,
+  );
+
+  function applySuggestion(sgg: InventoryGroupSuggestion) {
+    setInventoryNumber(sgg.inventoryNumber);
+    if (sgg.roomId) setRoomId(String(sgg.roomId));
+    if (sgg.responsibleEmployeeId) setResponsibleEmployeeId(String(sgg.responsibleEmployeeId));
+    setIsInventoryDropdownOpen(false);
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -120,27 +152,21 @@ export function EquipmentFormModal({
         ipAddress: ipAddress.trim() || null,
         macAddress: macAddress.trim() || null,
         notes: notes.trim() || null,
-        // ПК
         cpu: cpu.trim() || null,
         ramGb: ramGb ? Number(ramGb) : null,
         storage: storage.trim() || null,
         gpu: gpu.trim() || null,
         os: os.trim() || null,
         formFactor: formFactor.trim() || null,
-        // Монитор
         diagonalInch: diagonalInch ? Number(diagonalInch) : null,
         resolution: resolution.trim() || null,
         panelType: panelType.trim() || null,
         connectors: connectors.trim() || null,
-        // Принтер
         printSpeedPpm: printSpeedPpm ? Number(printSpeedPpm) : null,
         printColor: isPrinter ? printColor : null,
         printFormat: printFormat.trim() || null,
-        // Мышь / Клавиатура
         wireless: (isMouse || isKeyboard) ? wireless : null,
-        // Клавиатура
         switchType: switchType.trim() || null,
-        // Сеть / ИБП
         portCount: portCount ? Number(portCount) : null,
         powerVa: powerVa ? Number(powerVa) : null,
         batteryRuntimeMin: batteryRuntimeMin ? Number(batteryRuntimeMin) : null,
@@ -163,17 +189,40 @@ export function EquipmentFormModal({
 
         {/* ── Основные ── */}
         <div className="grid grid-cols-3 gap-3">
-          <div>
+          <div className="relative">
             <label htmlFor="eq-inv" className={labelClass}>Инв. номер</label>
             <input
               id="eq-inv"
               type="text"
               required
               value={inventoryNumber}
-              onChange={(e) => setInventoryNumber(e.target.value)}
+              onChange={(e) => {
+                setInventoryNumber(e.target.value);
+                setIsInventoryDropdownOpen(true);
+              }}
+              onFocus={() => setIsInventoryDropdownOpen(true)}
+              onBlur={() => setTimeout(() => setIsInventoryDropdownOpen(false), 150)}
               className={`${inputClass} tag-mono`}
               placeholder="INV-0001"
+              autoComplete="off"
             />
+            {isInventoryDropdownOpen && inventorySuggestions.length > 0 && (
+              <div className="absolute z-10 mt-1 max-h-40 w-56 overflow-y-auto rounded-md border border-line bg-surface shadow-lg">
+                {inventorySuggestions.map((sgg) => (
+                  <button
+                    key={sgg.inventoryNumber}
+                    type="button"
+                    onMouseDown={() => applySuggestion(sgg)}
+                    className="flex w-full flex-col items-start px-3 py-1.5 text-left text-xs hover:bg-neutral-soft"
+                  >
+                    <span className="tag-mono text-ink">{sgg.inventoryNumber}</span>
+                    <span className="text-ink-faint">
+                      {sgg.itemsCount} ед.{sgg.roomNumber ? ` · каб. ${sgg.roomNumber}` : ""}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <label htmlFor="eq-type" className={labelClass}>Тип</label>
@@ -202,14 +251,22 @@ export function EquipmentFormModal({
               onChange={(e) => setStatus(e.target.value as EquipmentStatus)}
               className={inputClass}
             >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {EQUIPMENT_STATUS_LABELS[s]}
+              {STATUSES.map((st) => (
+                <option key={st} value={st}>
+                  {EQUIPMENT_STATUS_LABELS[st]}
                 </option>
               ))}
             </select>
           </div>
         </div>
+
+        {exactMatch && (
+          <p className="-mt-3 text-xs text-warn">
+            Инвентарный номер «{exactMatch.inventoryNumber}» уже используется: {exactMatch.itemsCount}{" "}
+            ед. техники{exactMatch.roomNumber ? `, каб. ${exactMatch.roomNumber}` : ""}. Эта единица
+            добавится в тот же комплект.
+          </p>
+        )}
 
         {/* ── Размещение ── */}
         <div className="grid grid-cols-2 gap-3">

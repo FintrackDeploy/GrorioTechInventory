@@ -1,6 +1,13 @@
 import { apiClient } from "./client";
 import type { PageResponse } from "../types/page";
-import type { EquipmentRequest, EquipmentResponse, EquipmentStatus, EquipmentType } from "../types/equipment";
+import type {
+  EquipmentBatchRequest,
+  EquipmentRequest,
+  EquipmentResponse,
+  EquipmentStatus,
+  EquipmentType,
+  InventoryGroupSuggestion,
+} from "../types/equipment";
 
 export interface EquipmentFilters {
   status?: EquipmentStatus | null;
@@ -29,8 +36,6 @@ export async function fetchEquipmentPage(
   return data;
 }
 
-// Для тайпхеда выбора оборудования в форме заявки — короткий список по
-// свободному тексту, без пагинации (см. EquipmentController.search).
 export async function searchEquipment(q: string): Promise<EquipmentResponse[]> {
   if (!q.trim()) return [];
   const { data } = await apiClient.get<EquipmentResponse[]>("/equipment/search", {
@@ -39,8 +44,33 @@ export async function searchEquipment(q: string): Promise<EquipmentResponse[]> {
   return data;
 }
 
+// Автоподсказка инвентарных номеров (для формы оборудования и формы комплекта).
+export async function searchInventoryNumbers(q: string): Promise<InventoryGroupSuggestion[]> {
+  if (!q.trim()) return [];
+  const { data } = await apiClient.get<InventoryGroupSuggestion[]>("/equipment/inventory-numbers", {
+    params: { q: q.trim() },
+  });
+  return data;
+}
+
+// Все единицы техники, заведённые под одним инвентарным номером.
+export async function fetchEquipmentGroup(inventoryNumber: string): Promise<EquipmentResponse[]> {
+  const { data } = await apiClient.get<EquipmentResponse[]>(
+    `/equipment/by-inventory-number/${encodeURIComponent(inventoryNumber)}/group`,
+  );
+  return data;
+}
+
 export async function createEquipment(payload: EquipmentRequest): Promise<EquipmentResponse> {
   const { data } = await apiClient.post<EquipmentResponse>("/equipment", payload);
+  return data;
+}
+
+// Создать комплект — несколько единиц техники одним инвентарным номером.
+export async function createEquipmentBatch(
+  payload: EquipmentBatchRequest,
+): Promise<EquipmentResponse[]> {
+  const { data } = await apiClient.post<EquipmentResponse[]>("/equipment/batch", payload);
   return data;
 }
 

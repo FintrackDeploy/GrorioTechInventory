@@ -5,9 +5,12 @@ import { Pagination } from "../components/shared/Pagination";
 import { EquipmentStatusBadge } from "../components/equipment/EquipmentStatusBadge";
 import { EquipmentFilterBar } from "../components/equipment/EquipmentFilterBar";
 import { EquipmentFormModal } from "../components/equipment/EquipmentFormModal";
+import { EquipmentGroupFormModal } from "../components/equipment/EquipmentGroupFormModal";
+import { EquipmentGroupViewModal } from "../components/equipment/EquipmentGroupViewModal";
 import { useAuth } from "../context/AuthContext";
 import {
   createEquipment,
+  createEquipmentBatch,
   deleteEquipment,
   fetchEquipmentPage,
   updateEquipment,
@@ -23,7 +26,12 @@ import {
   COMPUTER_TYPES,
   NETWORK_TYPES,
 } from "../types/equipment";
-import type { EquipmentRequest, EquipmentResponse, EquipmentStatus } from "../types/equipment";
+import type {
+  EquipmentBatchRequest,
+  EquipmentRequest,
+  EquipmentResponse,
+  EquipmentStatus,
+} from "../types/equipment";
 import type { RoomResponse } from "../types/room";
 import type { EmployeeResponse } from "../types/employee";
 import type { PageResponse } from "../types/page";
@@ -80,8 +88,6 @@ export function EquipmentPage() {
   const canEdit = user?.role === "ADMIN" || user?.role === "ENGINEER";
   const isAdmin = user?.role === "ADMIN";
 
-  // Позволяет прийти на страницу уже с готовым фильтром, например
-  // /equipment?roomId=5 — переход с плана этажа или из списка кабинетов.
   const [searchParams] = useSearchParams();
 
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
@@ -96,6 +102,8 @@ export function EquipmentPage() {
 
   const [editingItem, setEditingItem] = useState<EquipmentResponse | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [viewingGroupNumber, setViewingGroupNumber] = useState<string | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -103,8 +111,6 @@ export function EquipmentPage() {
     fetchAllActiveEmployees().then(setEmployees).catch(() => setEmployees([]));
   }, []);
 
-  // Применяем roomId из query-параметра при заходе по ссылке
-  // (и при повторном заходе с новым параметром без размонтирования страницы).
   useEffect(() => {
     const roomIdParam = searchParams.get("roomId");
     if (roomIdParam) {
@@ -149,6 +155,12 @@ export function EquipmentPage() {
     await load();
   }
 
+  async function handleCreateGroup(payload: EquipmentBatchRequest) {
+    await createEquipmentBatch(payload);
+    setPage(0);
+    await load();
+  }
+
   async function handleUpdate(payload: EquipmentRequest) {
     if (!editingItem) return;
     await updateEquipment(editingItem.id, payload);
@@ -187,17 +199,26 @@ export function EquipmentPage() {
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
           <h2 className="text-sm font-semibold text-ink">Список оборудования</h2>
           {canEdit && (
-            <button
-              type="button"
-              onClick={() => setIsCreating(true)}
-              className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-strong"
-            >
-              + Оборудование
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCreatingGroup(true)}
+                title="Завести несколько единиц техники одним инвентарным номером"
+                className="rounded-md border border-brand px-3 py-1.5 text-sm font-medium text-brand hover:bg-brand-soft"
+              >
+                + Комплект
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsCreating(true)}
+                className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-strong"
+              >
+                + Оборудование
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Подсказка, если попали на страницу по ссылке с фильтром по кабинету */}
         {filteredRoom && (
           <div className="flex items-center justify-between gap-2 border-b border-line bg-brand-soft/40 px-4 py-2 text-xs text-brand-strong">
             <span>
@@ -261,7 +282,21 @@ export function EquipmentPage() {
                     key={item.id}
                     className="border-b border-line last:border-0 hover:bg-neutral-soft/50"
                   >
-                    <td className="tag-mono px-4 py-2.5 text-ink">{item.inventoryNumber}</td>
+                    <td className="tag-mono px-4 py-2.5 text-ink">
+                      <div className="flex items-center gap-1.5">
+                        <span>{item.inventoryNumber}</span>
+                        {item.groupSize > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setViewingGroupNumber(item.inventoryNumber)}
+                            title="Показать весь комплект по этому инв. номеру"
+                            className="tag-mono rounded border border-brand/30 bg-brand-soft px-1 py-0.5 text-[10px] text-brand-strong hover:bg-brand-soft/70"
+                          >
+                            ×{item.groupSize}
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-2.5">
                       <span className="inline-flex items-center rounded border border-line bg-neutral-soft px-1.5 py-0.5 text-[11px] text-ink-soft">
                         {EQUIPMENT_TYPE_LABELS[item.type]}
@@ -345,6 +380,24 @@ export function EquipmentPage() {
           employees={employees}
           onClose={() => setEditingItem(null)}
           onSubmit={handleUpdate}
+        />
+      )}
+      {isCreatingGroup && (
+        <EquipmentGroupFormModal
+          rooms={rooms}
+          employees={employees}
+          onClose={() => setIsCreatingGroup(false)}
+          onSubmit={handleCreateGroup}
+        />
+      )}
+      {viewingGroupNumber && (
+        <EquipmentGroupViewModal
+          inventoryNumber={viewingGroupNumber}
+          onClose={() => setViewingGroupNumber(null)}
+          onEditItem={(item) => {
+            setViewingGroupNumber(null);
+            setEditingItem(item);
+          }}
         />
       )}
     </AppShell>

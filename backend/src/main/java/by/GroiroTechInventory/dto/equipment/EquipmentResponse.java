@@ -51,6 +51,11 @@ public record EquipmentResponse(
         Integer powerVa,
         Integer batteryRuntimeMin,
 
+        // Сколько единиц техники (включая эту) заведено под этим же
+        // инвентарным номером — используется для бейджа "комплект ×N"
+        // в списке оборудования на фронте.
+        int groupSize,
+
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

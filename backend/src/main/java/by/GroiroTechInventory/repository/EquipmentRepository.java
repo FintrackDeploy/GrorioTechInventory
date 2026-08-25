@@ -2,6 +2,7 @@ package by.GroiroTechInventory.repository;
 
 import by.GroiroTechInventory.entity.Equipment;
 import by.GroiroTechInventory.enums.EquipmentStatus;
+import by.GroiroTechInventory.repository.projection.InventoryNumberCount;
 import by.GroiroTechInventory.repository.projection.RoomStatusCount;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -31,6 +32,33 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long>, Jpa
     @Query("SELECT COUNT(e) FROM Equipment e WHERE e.status = :status")
     long countByStatus(@Param("status") EquipmentStatus status);
 
+    // Комплект техники по одному инвентарному номеру (POINT: теперь номер
+    // не уникален — под ним может быть несколько единиц техники).
+    @EntityGraph(attributePaths = {"room", "responsibleEmployee"})
+    List<Equipment> findAllByInventoryNumberOrderByTypeAsc(String inventoryNumber);
+
+    long countByInventoryNumber(String inventoryNumber);
+
+    // Подсказки инвентарных номеров для автокомплита в форме.
+    @Query("""
+        SELECT DISTINCT e.inventoryNumber
+        FROM Equipment e
+        WHERE LOWER(e.inventoryNumber) LIKE LOWER(CONCAT('%', :q, '%'))
+        ORDER BY e.inventoryNumber
+        """)
+    List<String> findDistinctInventoryNumbers(@Param("q") String q);
+
+    // Сколько единиц техники под каждым инвентарным номером из набора —
+    // используется, чтобы проставить groupSize странице списка одним
+    // запросом вместо N+1.
+    @Query("""
+        SELECT e.inventoryNumber AS inventoryNumber, COUNT(e) AS cnt
+        FROM Equipment e
+        WHERE e.inventoryNumber IN :numbers
+        GROUP BY e.inventoryNumber
+        """)
+    List<InventoryNumberCount> countByInventoryNumbers(@Param("numbers") List<String> numbers);
+
     @Query("""
         SELECT e FROM Equipment e
         LEFT JOIN FETCH e.room
@@ -43,7 +71,6 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long>, Jpa
         """)
     List<Equipment> search(@Param("q") String query);
 
-    // Используется DashboardService — статистика по ВСЕМ кабинетам одним запросом.
     @Query("""
         SELECT e.room.id AS roomId, e.status AS status, COUNT(e) AS cnt
         FROM Equipment e
@@ -52,10 +79,6 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long>, Jpa
         """)
     List<RoomStatusCount> countGroupedByRoomAndStatus();
 
-    // Используется RoomService/FloorPlanService — статистика только по
-    // переданному набору кабинетов (страница списка или этаж), без
-    // сканирования всей таблицы оборудования и без N+1 по одному запросу
-    // на кабинет.
     @Query("""
         SELECT e.room.id AS roomId, e.status AS status, COUNT(e) AS cnt
         FROM Equipment e

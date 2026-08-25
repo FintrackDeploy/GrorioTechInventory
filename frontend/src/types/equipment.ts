@@ -16,6 +16,7 @@ export type EquipmentType =
   | "SERVER"
   | "PHONE"
   | "TABLET"
+  | "SPEAKERS"
   | "OTHER";
 
 export const EQUIPMENT_TYPE_LABELS: Record<EquipmentType, string> = {
@@ -36,6 +37,7 @@ export const EQUIPMENT_TYPE_LABELS: Record<EquipmentType, string> = {
   SERVER: "Сервер",
   PHONE: "Телефон",
   TABLET: "Планшет",
+  SPEAKERS: "Колонки",
   OTHER: "Другое",
 };
 
@@ -59,7 +61,7 @@ export const EQUIPMENT_TYPE_GROUPS: { label: string; types: EquipmentType[] }[] 
   },
   {
     label: "Прочее",
-    types: ["UPS", "PHONE", "TABLET", "OTHER"],
+    types: ["UPS", "PHONE", "TABLET", "SPEAKERS", "OTHER"],
   },
 ];
 
@@ -104,30 +106,27 @@ export interface EquipmentResponse {
   ipAddress: string | null;
   macAddress: string | null;
   notes: string | null;
-  // ПК
   cpu: string | null;
   ramGb: number | null;
   storage: string | null;
   gpu: string | null;
   os: string | null;
   formFactor: string | null;
-  // Монитор / Проектор
   diagonalInch: number | null;
   resolution: string | null;
   panelType: string | null;
   connectors: string | null;
-  // Принтер / МФУ
   printSpeedPpm: number | null;
   printColor: boolean | null;
   printFormat: string | null;
-  // Мышь / Клавиатура
   wireless: boolean | null;
-  // Клавиатура
   switchType: string | null;
-  // Сеть / ИБП
   portCount: number | null;
   powerVa: number | null;
   batteryRuntimeMin: number | null;
+  // Сколько единиц техники заведено под этим же инвентарным номером
+  // (комплект). 1 — если номер уникален.
+  groupSize: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -160,4 +159,28 @@ export interface EquipmentRequest {
   portCount: number | null;
   powerVa: number | null;
   batteryRuntimeMin: number | null;
+}
+
+// ── Комплект по одному инвентарному номеру ──────────────────────────
+
+export interface InventoryGroupSuggestion {
+  inventoryNumber: string;
+  itemsCount: number;
+  roomId: number | null;
+  roomNumber: string | null;
+  responsibleEmployeeId: number | null;
+  responsibleEmployeeName: string | null;
+}
+
+export interface EquipmentBatchRequest {
+  inventoryNumber: string;
+  items: EquipmentRequest[];
+}
+
+// Черновик одной единицы техники в форме создания комплекта
+export interface EquipmentBatchItemDraft {
+  id: string;
+  type: EquipmentType;
+  status: EquipmentStatus;
+  notes: string;
 }

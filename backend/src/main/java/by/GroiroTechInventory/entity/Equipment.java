@@ -26,7 +26,7 @@ public class Equipment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "inventory_number", nullable = false, unique = true, length = 50)
+    @Column(name = "inventory_number", nullable = false, length = 50)
     private String inventoryNumber;
 
     @Enumerated(EnumType.STRING)

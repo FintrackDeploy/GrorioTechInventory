@@ -23,5 +23,6 @@ public enum EquipmentType {
     SERVER,
     PHONE,
     TABLET,
+    SPEAKERS,
     OTHER
 }

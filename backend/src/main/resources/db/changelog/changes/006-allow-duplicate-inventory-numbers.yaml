@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-allow-duplicate-inventory-numbers
+      author: maksimlych
+      comment: >
+        Инвентарный номер теперь может быть общим для нескольких единиц
+        техники (компьютер + монитор + клавиатура + мышь + принтер и т.п.
+        заводятся одним инвентарным номером как комплект). Снимаем
+        уникальность с equipment.inventory_number. Индекс idx_equipment_inventory
+        (не уникальный, из 001-initial-schema) остаётся для поиска/группировки.
+        Если имя ограничения в вашей БД отличается — посмотрите его через
+        \d equipment (Postgres) и поправьте constraintName ниже.
+      changes:
+        - dropUniqueConstraint:
+            tableName: equipment
+            constraintName: equipment_inventory_number_key

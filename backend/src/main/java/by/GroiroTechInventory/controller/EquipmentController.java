@@ -1,7 +1,9 @@
 package by.GroiroTechInventory.controller;
 
+import by.GroiroTechInventory.dto.equipment.EquipmentBatchRequest;
 import by.GroiroTechInventory.dto.equipment.EquipmentRequest;
 import by.GroiroTechInventory.dto.equipment.EquipmentResponse;
+import by.GroiroTechInventory.dto.equipment.InventoryGroupSuggestion;
 import by.GroiroTechInventory.enums.EquipmentStatus;
 import by.GroiroTechInventory.enums.EquipmentType;
 import by.GroiroTechInventory.service.EquipmentService;
@@ -50,10 +52,29 @@ public class EquipmentController {
         return equipmentService.findByInventoryNumber(inventoryNumber);
     }
 
+    // Весь комплект по инвентарному номеру (теперь номер не уникален).
+    @GetMapping("/by-inventory-number/{inventoryNumber}/group")
+    public List<EquipmentResponse> findGroup(@PathVariable String inventoryNumber) {
+        return equipmentService.findGroupByInventoryNumber(inventoryNumber);
+    }
+
+    // Автоподсказка инвентарных номеров для формы создания/комплекта.
+    @GetMapping("/inventory-numbers")
+    public List<InventoryGroupSuggestion> suggestInventoryNumbers(@RequestParam String q) {
+        return equipmentService.suggestInventoryNumbers(q);
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'ENGINEER')")
     public ResponseEntity<EquipmentResponse> create(@Valid @RequestBody EquipmentRequest request) {
         return ResponseEntity.ok(equipmentService.create(request));
+    }
+
+    // Создание комплекта: несколько единиц техники одним инвентарным номером.
+    @PostMapping("/batch")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ENGINEER')")
+    public ResponseEntity<List<EquipmentResponse>> createBatch(@Valid @RequestBody EquipmentBatchRequest request) {
+        return ResponseEntity.ok(equipmentService.createBatch(request));
     }
 
     @PutMapping("/{id}")
