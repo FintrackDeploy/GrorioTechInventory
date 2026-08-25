@@ -17,3 +17,9 @@ export interface EmployeeRequest {
   email: string | null;
   isActive: boolean | null;
 }
+
+// Соответствует dto/employee/DepartmentSummaryResponse.java
+export interface DepartmentSummary {
+  department: string;
+  employeesCount: number;
+}

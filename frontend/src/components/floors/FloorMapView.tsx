@@ -47,6 +47,11 @@ export function FloorMapView({ floor, isAdmin, canEdit }: FloorMapViewProps) {
   const [drawingPoints, setDrawingPoints] = useState<Point[]>([]);
   const [isSavingMarker, setIsSavingMarker] = useState(false);
 
+  // Видимость маркеров на плане. По умолчанию всё СКРЫТО — иначе при
+  // большом числе маркеров разных типов план превращается в россыпь точек,
+  // на которой ничего не разобрать. Пользователь сам включает нужные типы.
+  const [visibleTypeIds, setVisibleTypeIds] = useState<Set<number>>(new Set());
+
   // Выбранный (для просмотра/редактирования подписи) существующий маркер
   const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null);
   const [editLabel, setEditLabel] = useState("");
@@ -87,6 +92,7 @@ export function FloorMapView({ floor, isAdmin, canEdit }: FloorMapViewProps) {
     setDrawingPoints([]);
     setSelectedMarkerId(null);
     setActionError(null);
+    setVisibleTypeIds(new Set());
     reload().finally(() => setIsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [floorId]);
@@ -104,6 +110,29 @@ export function FloorMapView({ floor, isAdmin, canEdit }: FloorMapViewProps) {
     () => markers.find((m) => m.id === selectedMarkerId) ?? null,
     [markers, selectedMarkerId],
   );
+
+  // Тип, который сейчас расставляется, обязан быть виден — иначе не видно,
+  // куда уже поставлены точки этого же типа.
+  const effectiveVisibleTypeIds = useMemo(() => {
+    if (activeTypeId === null) return visibleTypeIds;
+    const next = new Set(visibleTypeIds);
+    next.add(activeTypeId);
+    return next;
+  }, [visibleTypeIds, activeTypeId]);
+
+  const visibleMarkers = useMemo(
+    () => markers.filter((m) => effectiveVisibleTypeIds.has(m.markerTypeId)),
+    [markers, effectiveVisibleTypeIds],
+  );
+
+  function toggleVisibleType(id: number) {
+    setVisibleTypeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function handleUploadFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -185,6 +214,9 @@ export function FloorMapView({ floor, isAdmin, canEdit }: FloorMapViewProps) {
       setActiveTypeId(id);
       setDrawingPoints([]);
       setSelectedMarkerId(null);
+      // Включаем видимость типа насовсем, чтобы после выхода из режима
+      // расстановки только что поставленные точки не пропали с плана.
+      setVisibleTypeIds((prev) => new Set(prev).add(id));
     }
   }
 
@@ -253,6 +285,11 @@ export function FloorMapView({ floor, isAdmin, canEdit }: FloorMapViewProps) {
       await deleteMarkerType(type.id);
       setMarkerTypes((prev) => prev.filter((t) => t.id !== type.id));
       setMarkers((prev) => prev.filter((m) => m.markerTypeId !== type.id));
+      setVisibleTypeIds((prev) => {
+        const next = new Set(prev);
+        next.delete(type.id);
+        return next;
+      });
       if (activeTypeId === type.id) setActiveTypeId(null);
     } catch (err) {
       window.alert(extractApiErrorMessage(err, "Не удалось удалить тип маркера"));
@@ -271,7 +308,7 @@ export function FloorMapView({ floor, isAdmin, canEdit }: FloorMapViewProps) {
       ? activeType.kind === "POINT"
         ? `Кликайте по плану — каждый клик добавит «${activeType.name}»`
         : `Кликайте по плану, чтобы задать маршрут «${activeType.name}» — минимум 2 точки`
-      : "Кликните по метке, чтобы увидеть подробности";
+      : "Включите нужные типы в «Показать на плане», затем кликните по метке для подробностей";
 
   return (
     <div className="flex flex-1 gap-4">
@@ -306,7 +343,10 @@ export function FloorMapView({ floor, isAdmin, canEdit }: FloorMapViewProps) {
           </div>
         )}
 
-        {/* Палитра типов — только у тех, кто может расставлять маркеры */}
+        {/* Палитра типов для РАССТАНОВКИ — только у тех, кто может редактировать.
+            Выбор здесь одновременно включает и видимость этого типа (см.
+            toggleActiveType), а видимостью остальных типов управляет блок
+            "Показать на плане" в правой панели. */}
         {hasPlan && canEdit && (
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
             {markerTypes.map((t) => {
@@ -370,8 +410,9 @@ export function FloorMapView({ floor, isAdmin, canEdit }: FloorMapViewProps) {
                 className={`absolute inset-0 h-full w-full ${activeType ? "cursor-crosshair" : ""}`}
                 onClick={handleSvgClick}
               >
-                {/* Существующие маркеры */}
-                {markers.map((m) => {
+                {/* Только видимые маркеры — остальные скрыты, чтобы план не
+                    превращался в нечитаемую россыпь точек. */}
+                {visibleMarkers.map((m) => {
                   const pts = parsePoints(m.points);
                   if (pts.length === 0) return null;
                   const isSelected = m.id === selectedMarkerId;
@@ -559,6 +600,59 @@ export function FloorMapView({ floor, isAdmin, canEdit }: FloorMapViewProps) {
           </div>
         ) : (
           <>
+            {/* Видимость маркеров на плане — по умолчанию всё скрыто */}
+            <div className="mb-4 border-b border-line pb-4">
+              <div className="flex items-center justify-between">
+                <h3 className="tag-mono text-[10px] uppercase tracking-[0.1em] text-ink-faint">
+                  Показать на плане
+                </h3>
+                {markerTypes.length > 0 && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setVisibleTypeIds(new Set(markerTypes.map((t) => t.id)))}
+                      className="text-[10px] text-brand hover:text-brand-strong"
+                    >
+                      Все
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVisibleTypeIds(new Set())}
+                      className="text-[10px] text-ink-faint hover:text-ink"
+                    >
+                      Скрыть
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {markerTypes.map((t) => {
+                  const isVisible = effectiveVisibleTypeIds.has(t.id);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => toggleVisibleType(t.id)}
+                      className={[
+                        "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        isVisible ? "border-transparent text-white" : "border-line text-ink-soft hover:border-line-strong",
+                      ].join(" ")}
+                      style={isVisible ? { background: t.color } : undefined}
+                    >
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ background: isVisible ? "white" : t.color }}
+                      />
+                      {t.name}
+                    </button>
+                  );
+                })}
+                {markerTypes.length === 0 && (
+                  <p className="text-xs text-ink-faint">Типов ещё нет</p>
+                )}
+              </div>
+            </div>
+
             <h3 className="text-sm font-semibold text-ink">Маркеры на плане ({markers.length})</h3>
             {markers.length === 0 && (
               <p className="mt-2 text-xs text-ink-faint">
@@ -575,6 +669,9 @@ export function FloorMapView({ floor, isAdmin, canEdit }: FloorMapViewProps) {
                     onClick={() => {
                       setSelectedMarkerId(m.id);
                       setEditLabel(m.label ?? "");
+                      // Открывая маркер из списка, автоматически показываем
+                      // его тип на плане — иначе выделение было бы не видно.
+                      setVisibleTypeIds((prev) => new Set(prev).add(m.markerTypeId));
                     }}
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-ink-soft hover:bg-neutral-soft"
                   >

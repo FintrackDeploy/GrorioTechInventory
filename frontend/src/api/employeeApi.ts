@@ -1,6 +1,6 @@
 import { apiClient } from "./client";
 import type { PageResponse } from "../types/page";
-import type { EmployeeRequest, EmployeeResponse } from "../types/employee";
+import type { DepartmentSummary, EmployeeRequest, EmployeeResponse } from "../types/employee";
 
 // Для выпадающих списков (ответственный сотрудник) забираем всех активных
 // одной страницей — сотрудников в институте обычно не тысячи.
@@ -13,12 +13,19 @@ export async function fetchAllActiveEmployees(): Promise<EmployeeResponse[]> {
 
 export async function fetchEmployeesPage(
   onlyActive: boolean,
+  department: string | null,
   page: number,
   size = 20,
 ): Promise<PageResponse<EmployeeResponse>> {
   const { data } = await apiClient.get<PageResponse<EmployeeResponse>>("/employees", {
-    params: { onlyActive, page, size, sort: "fullName" },
+    params: { onlyActive, department: department || undefined, page, size, sort: "fullName" },
   });
+  return data;
+}
+
+// Сводка по отделам — для сайдбара-фильтра на странице сотрудников.
+export async function fetchDepartments(): Promise<DepartmentSummary[]> {
+  const { data } = await apiClient.get<DepartmentSummary[]>("/employees/departments");
   return data;
 }
 

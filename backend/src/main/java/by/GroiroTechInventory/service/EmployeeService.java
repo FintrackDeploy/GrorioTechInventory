@@ -1,15 +1,20 @@
 package by.GroiroTechInventory.service;
 
+import by.GroiroTechInventory.config.EmployeeSpecifications;
+import by.GroiroTechInventory.dto.employee.DepartmentSummaryResponse;
 import by.GroiroTechInventory.dto.employee.EmployeeRequest;
 import by.GroiroTechInventory.dto.employee.EmployeeResponse;
 import by.GroiroTechInventory.entity.Employee;
 import by.GroiroTechInventory.exception.NotFoundException;
 import by.GroiroTechInventory.repository.EmployeeRepository;
+import by.GroiroTechInventory.repository.projection.DepartmentCount;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -18,11 +23,15 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
 
-    public Page<EmployeeResponse> findAll(boolean onlyActive, Pageable pageable) {
-        Page<Employee> employees = onlyActive
-                ? employeeRepository.findByIsActiveTrue(pageable)
-                : employeeRepository.findAll(pageable);
-        return employees.map(this::toResponse);
+    public Page<EmployeeResponse> findAll(boolean onlyActive, String department, Pageable pageable) {
+        var spec = EmployeeSpecifications.withFilters(onlyActive, department);
+        return employeeRepository.findAll(spec, pageable).map(this::toResponse);
+    }
+
+    public List<DepartmentSummaryResponse> findDepartments() {
+        return employeeRepository.countGroupedByDepartment().stream()
+                .map(row -> new DepartmentSummaryResponse(row.getDepartment(), row.getCnt()))
+                .toList();
     }
 
     public EmployeeResponse findById(Long id) {

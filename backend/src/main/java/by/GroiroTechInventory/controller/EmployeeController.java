@@ -1,5 +1,6 @@
 package by.GroiroTechInventory.controller;
 
+import by.GroiroTechInventory.dto.employee.DepartmentSummaryResponse;
 import by.GroiroTechInventory.dto.employee.EmployeeRequest;
 import by.GroiroTechInventory.dto.employee.EmployeeResponse;
 import by.GroiroTechInventory.service.EmployeeService;
@@ -13,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/employees")
 @RequiredArgsConstructor
@@ -23,8 +26,15 @@ public class EmployeeController {
     @GetMapping
     public Page<EmployeeResponse> findAll(
             @RequestParam(defaultValue = "false") boolean onlyActive,
+            @RequestParam(required = false) String department,
             @PageableDefault(size = 50, sort = "fullName") Pageable pageable) {
-        return employeeService.findAll(onlyActive, pageable);
+        return employeeService.findAll(onlyActive, department, pageable);
+    }
+
+    // Сводка по отделам — для сайдбара-фильтра на странице сотрудников.
+    @GetMapping("/departments")
+    public List<DepartmentSummaryResponse> findDepartments() {
+        return employeeService.findDepartments();
     }
 
     @GetMapping("/{id}")
