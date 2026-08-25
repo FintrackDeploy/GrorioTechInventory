@@ -30,9 +30,6 @@ public class FloorPlanService {
     @Value("${app.upload-dir:uploads/floor-plans}")
     private String uploadDir;
 
-    @Value("${app.base-url:http://localhost:8080}")
-    private String baseUrl;
-
     public FloorPlanResponse getPlanByFloorId(Long floorId) {
         FloorPlan plan = floorPlanRepository.findByFloorId(floorId)
                 .orElseThrow(() -> new NotFoundException("План этажа не найден: floorId=" + floorId));
@@ -63,7 +60,6 @@ public class FloorPlanService {
         FloorPlan plan = floorPlanRepository.findByFloorId(floorId)
                 .orElse(FloorPlan.builder().floor(floor).build());
 
-        // Удаляем старый файл (относительный или абсолютный путь)
         if (plan.getImagePath() != null) {
             try {
                 Path old = Paths.get(plan.getImagePath());
@@ -74,7 +70,6 @@ public class FloorPlanService {
             } catch (IOException ignored) {}
         }
 
-        // Храним только имя файла (относительный путь) — удобно для Docker / нескольких инстансов
         plan.setImagePath(filename);
         plan.setOriginalWidth(img.getWidth());
         plan.setOriginalHeight(img.getHeight());
@@ -82,10 +77,17 @@ public class FloorPlanService {
         return toFloorPlanResponse(floorPlanRepository.save(plan));
     }
 
+    // Возвращаем ОТНОСИТЕЛЬНЫЙ путь ("/uploads/floor-plans/xxx.jpg"), а не
+    // абсолютный URL с хостом. Это принципиально: и nginx.conf (прод), и
+    // vite.config.ts (dev) уже проксируют /uploads/** на бэкенд, поэтому
+    // браузер сам подставит текущий хост/IP, с которого открыт сайт —
+    // localhost, IP в локалке, домен и т.п. Раньше здесь был baseUrl
+    // (app.base-url / APP_BASE_URL), из-за чего при заходе с другого ПК
+    // картинка ссылалась на "localhost:8080" этого другого ПК и не грузилась.
     private String buildImageUrl(String imagePath) {
         if (imagePath == null) return null;
         String filename = Paths.get(imagePath).getFileName().toString();
-        return baseUrl + "/uploads/floor-plans/" + filename;
+        return "/uploads/floor-plans/" + filename;
     }
 
     private String getExtension(String filename) {
